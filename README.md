@@ -1,5 +1,6 @@
 # mainapp
 ## Progeress Harian (14 April 2025)
+## Progress Harian (15 April 2025)
 ### Yusuf
 Assalamualaikum warahmmatulahi wabarakatuh, disini saya akan menyampaikan progres apa apa saja yang sudah saya kerjakan pada sprint day 1 ini. 
 yang pertama adalah web saya sudah terhubung dengan api backend yang di kerjakan oleh teman saya aksan
@@ -15,6 +16,7 @@ Wassalamualaikum warahmmatulahi wabarakatuh
 ### Windu
 ### Aksan
 ### Ipa
-1. tambahkan untuk kirim pesan (sudah selesai) dan sudah terkoneksi dengan databasenya sisa di hubungkan dengan frontend yang dibuat oleh windu
+1. Tambahkan untuk kirim pesan
+2. tambahkan untuk kirim pesan (sudah selesai) dan sudah terkoneksi dengan databasenya sisa di hubungkan dengan frontend yang dibuat oleh windu
 ### Salsa
 1. Buat Repositori
