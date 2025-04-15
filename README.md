@@ -16,7 +16,7 @@ Wassalamualaikum warahmmatulahi wabarakatuh
 ### Windu
 ### Aksan
 ### Ipa
-1. Tambahkan untuk kirim pesan
+1. Tambahkan untuk kirim pesan 
 2. tambahkan untuk kirim pesan (sudah selesai) dan sudah terkoneksi dengan databasenya sisa di hubungkan dengan frontend yang dibuat oleh windu
 ### Salsa
 1. Buat Repositori
