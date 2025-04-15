@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  h1 {
+    @apply text-4xl;
+  }
+  h2 {
+    @apply text-3xl;
+  }
+  h3 {
+    @apply text-xl;
+  }
+  p {
+    @apply text-base;
+  }
+
+  @screen md {
+    h1 {
+      @apply text-5xl;
+    }
+    h2 {
+      @apply text-4xl;
+    }
+    h3 {
+      @apply text-2xl;
+    }
+  }
+
+  @screen lg {
+    h1 {
+      @apply text-6xl;
+    }
+    h2 {
+      @apply text-5xl;
+    }
+    h3 {
+      @apply text-3xl;
+    }
+  }
+}
+
+
+@layer components {
+  ::-moz-selection { /* Code for Firefox */
+      @apply bg-[#1A73E9] text-white;
+  }
+
+  ::selection {
+      @apply bg-[#1A73E9] text-white;
+  }
+
+
+  .profile-image {
+    width: 230px !important;
+    height: 230px !important;
+    position: absolute;
+    top: 49% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
+
+  #about-section, #contact-section, #portofolios-section {
+    scroll-margin-block-start: 0;
+  }
+
+  .portofolio-desc{
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 4; /* number of lines to show */
+    -webkit-box-orient: vertical;
+  }
+
+  .custom-button-1 {
+      @apply rounded-xl px-6 py-3 font-medium text-white transition-all hover:scale-110 bg-[#1A73E9] shadow-lg;
+  }
+
+  .custom-button-2 {
+      @apply rounded-xl bg-white text-[#1A73E9] px-6 py-3 font-medium transition-all hover:scale-110 shadow-lg;
+  }
+
+  @screen md {
+    #about-section {
+      scroll-margin-block-start: 100px;
+    }
+
+    #contact-section, #portofolios-section {
+      scroll-margin-block-start: 50px;
+    }
+  }
+
+  @screen lg {
+    .profile-image {
+      width: 270px !important;
+      height: 270px !important;
+    }
+
+    #about-section{
+      scroll-margin-block-start: 1rem;
+    }
+
+    #contact-section, #portofolios-section {
+      scroll-margin-block-start: 0px;
+    }
+  }
+
+  @screen xl {
+    .profile-image {
+      width: 330px !important;
+      height: 330px !important;
+    }
+  }
+
+  @import "@fontsource/poppins/700.css";
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: url('/images/desa.png') no-repeat center center fixed;
+      background-size: cover;
+    }
+    
+
+    /* Misalnya, di file global.css atau modul CSS */
+    @media (max-width: 768px) {
+      .hero-text {
+        font-size: 20px; /* Sesuaikan ukuran font untuk mobile */
+      }
+      .hero-subtext {
+        font-size: 16px; /* Sesuaikan ukuran font untuk mobile */
+      }
+    }
+
+}
+
+
+@layer utilities {
+}
