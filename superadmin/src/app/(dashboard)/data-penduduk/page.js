@@ -601,12 +601,13 @@ export default function DataPenduduk() {
           >
             <MenuItem value="Belum Menikah">Belum Menikah</MenuItem>
             <MenuItem value="Menikah">Menikah</MenuItem>
-            <MenuItem value="Cerai">Cerai</MenuItem>
-            <MenuItem value="Janda/Duda">Janda/Duda</MenuItem>
+            <MenuItem value="Cerai Hidup">Cerai Hidup</MenuItem>
+            <MenuItem value="Cerai Mati">Cerai Mati</MenuItem>
           </TextField>
           <TextField
             label="Kewarganegaraan"
             name="kewarganegaraan"
+            select
             value={formData.kewarganegaraan}
             onChange={handleInputChange}
             fullWidth
@@ -615,7 +616,11 @@ export default function DataPenduduk() {
             disabled={loading}
             error={showAlert && !formData.kewarganegaraan}
             helperText={showAlert && !formData.kewarganegaraan ? 'Kewarganegaraan wajib diisi' : ''}
-          />
+            >
+            <MenuItem value="WNI">WNI (Warga Negara Indonesia)</MenuItem>
+            <MenuItem value="WNA">WNA (Warga Negara Asing)</MenuItem>
+          </TextField>
+
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowModal(false)} disabled={loading}>

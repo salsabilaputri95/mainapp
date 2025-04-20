@@ -215,7 +215,7 @@ func (s *userServiceImpl) ForgotPassword(req dto.ForgotPasswordRequest) error {
 		return fmt.Errorf("gagal menyimpan token reset: %w", err)
 	}
 
-	resetURL := fmt.Sprintf("http://localhost:5001/authentication/reset-password?token=%s", token)
+	resetURL := fmt.Sprintf("http://localhost:3000/authentication/reset-password?token=%s", token)
 	emailBody := fmt.Sprintf(`
         <html>
         <body>
