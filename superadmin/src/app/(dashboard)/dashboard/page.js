@@ -5,6 +5,7 @@ import {
   Box, Typography, Grid, Card, CardContent, CircularProgress, Fade, Chip, Button
 } from '@mui/material'
 import { styled } from '@mui/material/styles'
+import { useRouter } from 'next/navigation';
 import PeopleIcon from '@mui/icons-material/People'
 import MaleIcon from '@mui/icons-material/Male'
 import FemaleIcon from '@mui/icons-material/Female'
@@ -87,28 +88,45 @@ export default function Dashboard() {
     perempuan: 0,
   })
   const [loading, setLoading] = useState(true)
+  const router = useRouter();
 
   useEffect(() => {
-    fetchStats()
-  }, [])
+    // Cek token
+    const token = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('token='))
+      ?.split('=')[1];
+    if (!token) {
+      router.push('/');
+      return;
+    }
 
-  const fetchStats = async () => {
+    fetchStats(token);
+  }, [router]);
+
+  const fetchStats = async (token) => {
     try {
       setLoading(true)
       const response = await fetch("http://localhost:8080/api/dashboard/stats", {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+        },
         credentials: 'include',
       })
+
+      if (!response.ok) throw new Error('Gagal mengambil data statistik');
 
       const data = await response.json()
       console.log("RESPON API:", data) // Debug log
 
       setStats({
-        totalPenduduk: data.total,
-        lakiLaki: data.laki,
-        perempuan: data.perempuan,
+        totalPenduduk: data.total || 0,
+        lakiLaki: data.laki || 0,
+        perempuan: data.perempuan || 0,
       })
     } catch (error) {
       console.error("Gagal mengambil data statistik:", error)
+      router.push('/');
     } finally {
       setLoading(false)
     }
@@ -133,7 +151,7 @@ export default function Dashboard() {
             </TextNoCursor>
             <ActionButton 
               startIcon={<AdminPanelSettingsIcon />}
-              onClick={() => window.location.href = '/data-penduduk'}
+              onClick={() => router.push('/data-penduduk')}
             >
               Kelola Data Penduduk
             </ActionButton>

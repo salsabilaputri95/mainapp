@@ -27,7 +27,7 @@ const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
   { text: 'Manajemen Pengguna', icon: <PaymentsIcon />, path: '/manajemen-pengguna' }, // Diperbaiki dari /pemasukan
   { text: 'Data Penduduk', icon: <ReceiptIcon />, path: '/data-penduduk' },
-  { text: 'Laporan Keuangan', icon: <AssessmentIcon />, path: '/laporan' },
+  { text: 'Kelola Konten', icon: <AssessmentIcon />, path: '/kelola-konten' },
 ];
 
 export default function DashboardLayout({ children }) {

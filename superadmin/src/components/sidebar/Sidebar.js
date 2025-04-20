@@ -91,7 +91,7 @@ const menuItems = [
   { title: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
   { title: 'Pemasukan', icon: <TrendingUpIcon />, path: '/pemasukan' },
   { title: 'Pengeluaran', icon: <TrendingDownIcon />, path: '/pengeluaran' },
-  { title: 'Laporan Keuangan', icon: <AssessmentIcon />, path: '/laporan' },
+  { title: 'Managemen Konten', icon: <AssessmentIcon />, path: '/kelola-konten' },
 ];
 
 export default function Sidebar() {

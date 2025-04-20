@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
+import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Box,
-  Typography, Card, CardContent, IconButton, Tooltip, Divider, Alert, Fade,
+  Typography, Card, CardContent, IconButton, Tooltip, Alert, Fade,
   CircularProgress, MenuItem
 } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
@@ -66,7 +66,10 @@ export default function DataPenduduk() {
     tanggal_lahir: '',
     jenis_kelamin: '',
     pendidikan: '',
-    pekerjaan: ''
+    pekerjaan: '',
+    agama: '',
+    status_pernikahan: '',
+    kewarganegaraan: ''
   })
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
@@ -83,29 +86,96 @@ export default function DataPenduduk() {
     if (parts.length === 2) return parts.pop().split(';').shift()
   }
 
+  const fetchWithTimeout = async (url, options, timeout = 10000) => {
+    const controller = new AbortController()
+    const id = setTimeout(() => controller.abort(), timeout)
+    try {
+      console.log(`[FETCH] Mengirim permintaan ke: ${url}`)
+      const response = await fetch(url, { ...options, signal: controller.signal })
+      console.log(`[FETCH] Status: ${response.status}, Content-Type: ${response.headers.get('Content-Type')}`)
+      clearTimeout(id)
+      return response
+    } catch (error) {
+      clearTimeout(id)
+      console.error(`[FETCH] Error ke ${url}:`, error)
+      throw error
+    }
+  }
+
   const fetchUserData = async () => {
     try {
+      setLoading(true)
       const token = getCookie('token')
       if (!token) {
+        console.error('[FETCH] Token tidak ditemukan')
         showAlertMessage('Token tidak ditemukan, silakan login kembali', 'error')
         return
       }
+      console.log('[FETCH] Mengambil data warga dengan token:', token)
+      const res = await fetchWithTimeout('http://localhost:8080/api/warga', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      }, 10000)
 
-      setLoading(true)
-      const res = await fetch('http://localhost:8080/api/warga', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      console.log('[FETCH] Status:', res.status)
+      const text = await res.text()
+      console.log('[FETCH] Respons teks:', text)
 
-      if (!res.ok) {
-        throw new Error('Gagal mengambil data warga')
+      let data
+      try {
+        data = JSON.parse(text)
+        console.log('[FETCH] Respons JSON:', data)
+      } catch (jsonError) {
+        console.error('[FETCH] Gagal parsing JSON:', jsonError)
+        throw new Error(`Respons bukan JSON: ${text}`)
       }
 
-      const data = await res.json()
-      const warga = Array.isArray(data.data) ? data.data : []
-      setRows(warga)
+      if (!res.ok) {
+        console.error('[FETCH] Respons tidak OK:', res.status, data)
+        throw new Error(data.message || `Gagal mengambil data penduduk: ${res.status}`)
+      }
+
+      const wargaData = Array.isArray(data.data) ? data.data :
+                        Array.isArray(data.result) ? data.result :
+                        Array.isArray(data) ? data : []
+
+      const normalizedData = wargaData.map(item => ({
+        id: item.id || item.ID || '',
+        nik: item.nik || item.Nik || '-',
+        nama_lengkap: item.nama_lengkap || item.NamaLengkap || '-',
+        tempat_lahir: item.tempat_lahir || item.TempatLahir || '-',
+        tanggal_lahir: item.tanggal_lahir || item.TanggalLahir || '-',
+        jenis_kelamin: item.jenis_kelamin || item.JenisKelamin || '-',
+        pendidikan: item.pendidikan || item.Pendidikan || '-',
+        pekerjaan: item.pekerjaan || item.Pekerjaan || '-',
+        agama: item.agama || item.Agama || '-',
+        status_pernikahan: item.status_pernikahan || item.StatusPernikahan || '-',
+        kewarganegaraan: item.kewarganegaraan || item.Kewarganegaraan || '-'
+      }))
+
+      console.log('[FETCH] Data ternormalisasi:', normalizedData)
+      setRows(normalizedData)
+      if (normalizedData.length === 0) {
+        showAlertMessage('Tidak ada data penduduk di database', 'info')
+      }
     } catch (err) {
-      console.error('Fetch error:', err)
-      showAlertMessage('Gagal memuat data warga', 'error')
+      console.error('[FETCH] Error saat fetch data:', err)
+      let errorMessage = err.message
+      if (err.name === 'AbortError') {
+        errorMessage = 'Permintaan timeout, silakan coba lagi'
+      } else if (err.message.includes('Failed to fetch')) {
+        errorMessage = 'Gagal terhubung ke server, periksa backend atau koneksi'
+      } else if (err.message.includes('500')) {
+        errorMessage = `Kesalahan server: ${err.message}`
+      } else if (err.message.includes('401')) {
+        errorMessage = 'Token tidak valid, silakan login kembali'
+      } else if (err.message.includes('Respons bukan JSON')) {
+        errorMessage = `Server mengembalikan respons tidak valid: ${err.message}`
+      }
+      showAlertMessage(errorMessage, 'error')
     } finally {
       setLoading(false)
     }
@@ -113,10 +183,7 @@ export default function DataPenduduk() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
   const handleAdd = () => {
@@ -128,62 +195,91 @@ export default function DataPenduduk() {
       tanggal_lahir: '',
       jenis_kelamin: '',
       pendidikan: '',
-      pekerjaan: ''
+      pekerjaan: '',
+      agama: '',
+      status_pernikahan: '',
+      kewarganegaraan: ''
     })
     setShowModal(true)
   }
 
   const handleEdit = (row) => {
+    console.log('[EDIT] Mengedit data:', row)
     setEditingId(row.id)
     setFormData({
-      nik: row.nik,
-      nama_lengkap: row.nama_lengkap,
-      tempat_lahir: row.tempat_lahir,
-      tanggal_lahir: row.tanggal_lahir,
-      jenis_kelamin: row.jenis_kelamin,
-      pendidikan: row.pendidikan,
-      pekerjaan: row.pekerjaan
+      nik: row.nik || '',
+      nama_lengkap: row.nama_lengkap || '',
+      tempat_lahir: row.tempat_lahir || '',
+      tanggal_lahir: row.tanggal_lahir || '',
+      jenis_kelamin: row.jenis_kelamin || '',
+      pendidikan: row.pendidikan || '',
+      pekerjaan: row.pekerjaan || '',
+      agama: row.agama || '',
+      status_pernikahan: row.status_pernikahan || '',
+      kewarganegaraan: row.kewarganegaraan || ''
     })
     setShowModal(true)
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus data penduduk dengan ID ${id}?`)) {
-      return
-    }
+    if (!window.confirm('Yakin ingin menghapus data ini?')) return
     try {
+      setLoading(true)
       const token = getCookie('token')
       if (!token) {
+        console.error('[DELETE] Token tidak ditemukan')
         showAlertMessage('Token tidak ditemukan, silakan login kembali', 'error')
         return
       }
-
-      setLoading(true)
-      const res = await fetch(`http://localhost:8080/api/warga/${id}`, {
+      console.log('[DELETE] Menghapus data dengan ID:', id)
+      const res = await fetchWithTimeout(`http://localhost:8080/api/warga/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      })
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      }, 10000)
 
-      if (!res.ok) {
-        throw new Error('Gagal menghapus data')
+      const text = await res.text()
+      console.log('[DELETE] Respons teks:', text)
+      let data
+
+      try {
+        data = JSON.parse(text)
+        console.log('[DELETE] Respons JSON:', data)
+      } catch (jsonError) {
+        console.error('[DELETE] Gagal parsing JSON:', jsonError)
+        throw new Error(`Respons bukan JSON: ${text}`)
       }
 
-      const data = await res.json()
+      if (!res.ok) {
+        console.error('[DELETE] Respons tidak OK:', res.status, data)
+        throw new Error(data.message || 'Gagal menghapus data')
+      }
       showAlertMessage(data.message || 'Data berhasil dihapus', 'success')
       fetchUserData()
     } catch (err) {
-      console.error('Delete error:', err)
-      showAlertMessage('Gagal menghapus data', 'error')
+      console.error('[DELETE] Error:', err)
+      let errorMessage = err.message
+      if (err.name === 'AbortError') {
+        errorMessage = 'Permintaan timeout, silakan coba lagi'
+      } else if (err.message.includes('Failed to fetch')) {
+        errorMessage = 'Gagal terhubung ke server, periksa backend atau koneksi'
+      } else if (err.message.includes('401')) {
+        errorMessage = 'Token tidak valid, silakan login kembali'
+      }
+      showAlertMessage(errorMessage, 'error')
     } finally {
       setLoading(false)
     }
   }
 
   const handleSave = async () => {
-    const { nik, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin, pendidikan, pekerjaan } = formData
+    const { nik, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin, pendidikan, pekerjaan, agama, status_pernikahan, kewarganegaraan } = formData
 
-    if (!nik || !nama_lengkap || !tempat_lahir || !tanggal_lahir || !jenis_kelamin || !pendidikan || !pekerjaan) {
-      showAlertMessage('Semua field harus diisi', 'error')
+    if (!nik || !nama_lengkap || !tempat_lahir || !tanggal_lahir || !jenis_kelamin || !pendidikan || !pekerjaan || !agama || !status_pernikahan || !kewarganegaraan) {
+      showAlertMessage('Semua field wajib diisi', 'error')
       return
     }
 
@@ -192,39 +288,82 @@ export default function DataPenduduk() {
       return
     }
 
+    const validAgama = ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu']
+    if (!validAgama.includes(agama)) {
+      showAlertMessage('Pilih agama yang valid', 'error')
+      return
+    }
+
+    const validStatus = ['Belum Menikah', 'Menikah', 'Cerai', 'Janda/Duda']
+    if (!validStatus.includes(status_pernikahan)) {
+      showAlertMessage('Pilih status pernikahan yang valid', 'error')
+  return
+    }
+
     try {
+      setLoading(true)
       const token = getCookie('token')
       if (!token) {
+        console.error('[SAVE] Token tidak ditemukan')
         showAlertMessage('Token tidak ditemukan, silakan login kembali', 'error')
         return
       }
-
-      setLoading(true)
-      const endpoint = editingId
-        ? `http://localhost:8080/api/warga/${editingId}`
-        : 'http://localhost:8080/api/warga'
+      const endpoint = editingId ? `http://localhost:8080/api/warga/${editingId}` : 'http://localhost:8080/api/warga'
       const method = editingId ? 'PUT' : 'POST'
-
-      const res = await fetch(endpoint, {
+      console.log('[SAVE] Mengirim data:', formData, 'ke endpoint:', endpoint)
+      const res = await fetchWithTimeout(endpoint, {
         method,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
-      })
+        body: JSON.stringify(formData),
+        credentials: 'include'
+      }, 10000)
 
-      if (!res.ok) {
-        throw new Error('Gagal menyimpan data')
+      const text = await res.text()
+      console.log('[SAVE] Respons teks:', text)
+      let data
+
+      try {
+        data = JSON.parse(text)
+        console.log('[SAVE] Respons JSON:', data)
+      } catch (jsonError) {
+        console.error('[SAVE] Gagal parsing JSON:', jsonError)
+        throw new Error(`Respons bukan JSON: ${text}`)
       }
 
-      const data = await res.json()
+      if (!res.ok) {
+        console.error('[SAVE] Respons tidak OK:', res.status, data)
+        throw new Error(data.message || 'Gagal menyimpan data')
+      }
       showAlertMessage(data.message || 'Data berhasil disimpan', 'success')
       setShowModal(false)
+      setEditingId(null)
+      setFormData({
+        nik: '',
+        nama_lengkap: '',
+        tempat_lahir: '',
+        tanggal_lahir: '',
+        jenis_kelamin: '',
+        pendidikan: '',
+        pekerjaan: '',
+        agama: '',
+        status_pernikahan: '',
+        kewarganegaraan: ''
+      })
       fetchUserData()
     } catch (err) {
-      console.error('Save error:', err)
-      showAlertMessage('Gagal menyimpan data', 'error')
+      console.error('[SAVE] Error:', err)
+      let errorMessage = err.message
+      if (err.name === 'AbortError') {
+        errorMessage = 'Permintaan timeout, silakan coba lagi'
+      } else if (err.message.includes('Failed to fetch')) {
+        errorMessage = 'Gagal terhubung ke server, periksa backend atau koneksi'
+      } else if (err.message.includes('401')) {
+        errorMessage = 'Token tidak valid, silakan login kembali'
+      }
+      showAlertMessage(errorMessage, 'error')
     } finally {
       setLoading(false)
     }
@@ -237,24 +376,20 @@ export default function DataPenduduk() {
     setTimeout(() => setShowAlert(false), 3000)
   }
 
-  const calculateAge = (tanggalLahir) => {
-    const birthDate = new Date(tanggalLahir)
-    const today = new Date()
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--
-    }
-    return age
+  const calculateAge = (tanggal) => {
+    if (!tanggal) return '-'
+    const birth = new Date(tanggal)
+    const now = new Date()
+    let age = now.getFullYear() - birth.getFullYear()
+    const m = now.getMonth() - birth.getMonth()
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--
+    return age >= 0 ? age : '-'
   }
 
   return (
     <Box sx={{ padding: '24px', mt: '-20px' }}>
       <Fade in={showAlert}>
-        <Alert 
-          severity={alertType}
-          sx={{ position: 'fixed', top: 24, right: 24, zIndex: 9999 }}
-        >
+        <Alert severity={alertType} sx={{ position: 'fixed', top: 24, right: 24, zIndex: 9999 }}>
           {alertMessage}
         </Alert>
       </Fade>
@@ -263,11 +398,7 @@ export default function DataPenduduk() {
         <Typography variant="h4" sx={{ fontWeight: 700 }}>
           Data Penduduk
         </Typography>
-        <AddButton
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleAdd}
-        >
+        <AddButton variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
           Tambah Data Penduduk
         </AddButton>
       </HeaderBox>
@@ -281,23 +412,26 @@ export default function DataPenduduk() {
                   <TableCell>NIK</TableCell>
                   <TableCell>Nama</TableCell>
                   <TableCell>Tempat Lahir</TableCell>
-                  <TableCell>Tgl Lahir (Umur)</TableCell>
+                  <TableCell>Tanggal Lahir (Umur)</TableCell>
                   <TableCell>Jenis Kelamin</TableCell>
                   <TableCell>Pendidikan</TableCell>
                   <TableCell>Pekerjaan</TableCell>
+                  <TableCell>Agama</TableCell>
+                  <TableCell>Status Pernikahan</TableCell>
+                  <TableCell>Kewarganegaraan</TableCell>
                   <TableCell align="center">Aksi</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={11} align="center">
                       <CircularProgress />
                     </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={11} align="center">
                       <PeopleIcon sx={{ fontSize: 48, color: '#ccc', mb: 2 }} />
                       <Typography variant="body1" color="textSecondary">
                         Belum ada data penduduk
@@ -306,7 +440,7 @@ export default function DataPenduduk() {
                   </TableRow>
                 ) : (
                   rows.map((row) => (
-                    <TableRow key={row.nik}>
+                    <TableRow key={row.id || row.nik}>
                       <TableCell>{row.nik}</TableCell>
                       <TableCell>{row.nama_lengkap}</TableCell>
                       <TableCell>{row.tempat_lahir}</TableCell>
@@ -314,6 +448,9 @@ export default function DataPenduduk() {
                       <TableCell>{row.jenis_kelamin}</TableCell>
                       <TableCell>{row.pendidikan}</TableCell>
                       <TableCell>{row.pekerjaan}</TableCell>
+                      <TableCell>{row.agama}</TableCell>
+                      <TableCell>{row.status_pernikahan}</TableCell>
+                      <TableCell>{row.kewarganegaraan}</TableCell>
                       <TableCell align="center">
                         <Tooltip title="Edit">
                           <IconButton onClick={() => handleEdit(row)}>
@@ -347,6 +484,9 @@ export default function DataPenduduk() {
             required
             margin="normal"
             inputProps={{ maxLength: 16, pattern: '[0-9]*' }}
+            disabled={loading}
+            error={showAlert && !formData.nik}
+            helperText={showAlert && !formData.nik ? 'NIK wajib diisi' : ''}
           />
           <TextField
             label="Nama Lengkap"
@@ -356,6 +496,9 @@ export default function DataPenduduk() {
             fullWidth
             required
             margin="normal"
+            disabled={loading}
+            error={showAlert && !formData.nama_lengkap}
+            helperText={showAlert && !formData.nama_lengkap ? 'Nama wajib diisi' : ''}
           />
           <TextField
             label="Tempat Lahir"
@@ -365,6 +508,9 @@ export default function DataPenduduk() {
             fullWidth
             required
             margin="normal"
+            disabled={loading}
+            error={showAlert && !formData.tempat_lahir}
+            helperText={showAlert && !formData.tempat_lahir ? 'Tempat lahir wajib diisi' : ''}
           />
           <TextField
             label="Tanggal Lahir"
@@ -376,6 +522,9 @@ export default function DataPenduduk() {
             required
             margin="normal"
             InputLabelProps={{ shrink: true }}
+            disabled={loading}
+            error={showAlert && !formData.tanggal_lahir}
+            helperText={showAlert && !formData.tanggal_lahir ? 'Tanggal lahir wajib diisi' : ''}
           />
           <TextField
             label="Jenis Kelamin"
@@ -386,6 +535,9 @@ export default function DataPenduduk() {
             fullWidth
             required
             margin="normal"
+            disabled={loading}
+            error={showAlert && !formData.jenis_kelamin}
+            helperText={showAlert && !formData.jenis_kelamin ? 'Jenis kelamin wajib diisi' : ''}
           >
             <MenuItem value="Laki-laki">Laki-laki</MenuItem>
             <MenuItem value="Perempuan">Perempuan</MenuItem>
@@ -398,6 +550,9 @@ export default function DataPenduduk() {
             fullWidth
             required
             margin="normal"
+            disabled={loading}
+            error={showAlert && !formData.pendidikan}
+            helperText={showAlert && !formData.pendidikan ? 'Pendidikan wajib diisi' : ''}
           />
           <TextField
             label="Pekerjaan"
@@ -407,10 +562,65 @@ export default function DataPenduduk() {
             fullWidth
             required
             margin="normal"
+            disabled={loading}
+            error={showAlert && !formData.pekerjaan}
+            helperText={showAlert && !formData.pekerjaan ? 'Pekerjaan wajib diisi' : ''}
+          />
+          <TextField
+            label="Agama"
+            name="agama"
+            select
+            value={formData.agama}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            margin="normal"
+            disabled={loading}
+            error={showAlert && !formData.agama}
+            helperText={showAlert && !formData.agama ? 'Agama wajib diisi' : ''}
+          >
+            <MenuItem value="Islam">Islam</MenuItem>
+            <MenuItem value="Kristen">Kristen</MenuItem>
+            <MenuItem value="Katolik">Katolik</MenuItem>
+            <MenuItem value="Hindu">Hindu</MenuItem>
+            <MenuItem value="Buddha">Buddha</MenuItem>
+            <MenuItem value="Konghucu">Konghucu</MenuItem>
+          </TextField>
+          <TextField
+            label="Status Pernikahan"
+            name="status_pernikahan"
+            select
+            value={formData.status_pernikahan}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            margin="normal"
+            disabled={loading}
+            error={showAlert && !formData.status_pernikahan}
+            helperText={showAlert && !formData.status_pernikahan ? 'Status pernikahan wajib diisi' : ''}
+          >
+            <MenuItem value="Belum Menikah">Belum Menikah</MenuItem>
+            <MenuItem value="Menikah">Menikah</MenuItem>
+            <MenuItem value="Cerai">Cerai</MenuItem>
+            <MenuItem value="Janda/Duda">Janda/Duda</MenuItem>
+          </TextField>
+          <TextField
+            label="Kewarganegaraan"
+            name="kewarganegaraan"
+            value={formData.kewarganegaraan}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            margin="normal"
+            disabled={loading}
+            error={showAlert && !formData.kewarganegaraan}
+            helperText={showAlert && !formData.kewarganegaraan ? 'Kewarganegaraan wajib diisi' : ''}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowModal(false)}>Batal</Button>
+          <Button onClick={() => setShowModal(false)} disabled={loading}>
+            Batal
+          </Button>
           <Button onClick={handleSave} disabled={loading}>
             {loading ? <CircularProgress size={24} /> : 'Simpan'}
           </Button>

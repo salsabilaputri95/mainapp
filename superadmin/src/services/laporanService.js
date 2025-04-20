@@ -222,7 +222,7 @@ export const laporanService = {
 
     addLaporan: async (laporanData) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/laporan/add`, {
+            const response = await fetch(`${API_BASE_URL}/kelola-konten/add`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

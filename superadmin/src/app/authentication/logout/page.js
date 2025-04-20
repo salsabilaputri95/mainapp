@@ -10,7 +10,7 @@ export default function Logout() {
 
   useEffect(() => {
     logout();
-    router.push('/authentication/login');
+    router.push('/authentication/sign-in');
   }, [router, logout]);
 
   return null;

@@ -76,9 +76,15 @@ export default function ManajemenPengguna() {
   }, []);
 
   const getCookie = (name) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
+    try {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return null;
+    } catch (err) {
+      console.error('Gagal parsing cookie:', err);
+      return null;
+    }
   };
 
   const fetchUsers = async () => {
@@ -90,20 +96,43 @@ export default function ManajemenPengguna() {
       }
 
       setLoading(true);
-      const res = await fetch('http://localhost:8080/api/user', {
+      console.log('[FETCH] Mengambil data pengguna dengan token:', token);
+      const res = await fetch('http://localhost:8080/api/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (!res.ok) {
-        throw new Error('Gagal mengambil data pengguna');
+      console.log('[FETCH] Status:', res.status);
+      const text = await res.text();
+      console.log('[FETCH] Respons teks:', text);
+
+      let data;
+      try {
+        data = JSON.parse(text);
+        console.log('[FETCH] Respons JSON:', data);
+      } catch (jsonError) {
+        console.error('[FETCH] Gagal parsing JSON:', jsonError);
+        throw new Error(`Respons bukan JSON: ${text}`);
       }
 
-      const data = await res.json();
-      const userList = Array.isArray(data.data) ? data.data : [];
+      if (!res.ok) {
+        throw new Error(data.message || 'Gagal mengambil data pengguna');
+      }
+
+      const userList = Array.isArray(data.data) ? data.data.map(user => ({
+        id: user.Id,
+        nikadmin: user.Nikadmin,
+        email: user.Email,
+        password: user.Password,
+        namalengkap: user.NamaLengkap,
+        role_id: user.RoleID
+      })) : [];
       setUsers(userList);
+      if (userList.length === 0) {
+        showAlertMessage('Tidak ada data pengguna di database', 'info');
+      }
     } catch (err) {
       console.error('Fetch error:', err);
-      showAlertMessage('Gagal memuat data pengguna', 'error');
+      showAlertMessage(err.message || 'Gagal memuat data pengguna', 'error');
     } finally {
       setLoading(false);
     }
@@ -138,8 +167,7 @@ export default function ManajemenPengguna() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setLoading(true);
     setShowAlert(false);
 
@@ -153,14 +181,24 @@ export default function ManajemenPengguna() {
     }
 
     // Validasi field wajib
-    if (!email || !password || !namalengkap || !role_id) {
+    if (!email || !namalengkap || !role_id || (!editingId && !password)) {
       showAlertMessage('Semua field harus diisi', 'error');
       setLoading(false);
       return;
     }
 
-    const signupPayload = { nikadmin, email, password, namalengkap, role_id };
-    console.log('Mengirim ke API:', signupPayload);
+    // Validasi peran
+    const validRoles = ['ROLE000', 'ROLE001', 'ROLE002'];
+    if (!validRoles.includes(role_id)) {
+      showAlertMessage('Peran tidak valid', 'error');
+      setLoading(false);
+      return;
+    }
+
+    const signupPayload = { nikadmin, email, namalengkap, role_id };
+    if (password && !editingId) {
+      signupPayload.pass = password; // Hanya kirim password saat tambah
+    }
 
     try {
       const token = getCookie('token');
@@ -175,6 +213,7 @@ export default function ManajemenPengguna() {
         : 'http://localhost:8080/api/user/sign-up';
       const method = editingId ? 'PUT' : 'POST';
 
+      console.log('[SUBMIT] Mengirim data:', signupPayload, 'ke endpoint:', endpoint);
       const response = await fetch(endpoint, {
         method,
         headers: {
@@ -184,9 +223,22 @@ export default function ManajemenPengguna() {
         body: JSON.stringify(signupPayload),
       });
 
-      const responseData = await response.json();
+      console.log('[SUBMIT] Status:', response.status);
+      const text = await response.text();
+      console.log('[SUBMIT] Respons teks:', text);
+
+      let responseData;
+      try {
+        responseData = JSON.parse(text);
+        console.log('[SUBMIT] Respons JSON:', responseData);
+      } catch (jsonError) {
+        console.error('[SUBMIT] Gagal parsing JSON:', jsonError);
+        throw new Error(`Respons bukan JSON: ${text}`);
+      }
+
       if (!response.ok) {
-        throw new Error(responseData.message || editingId ? 'Gagal memperbarui pengguna' : 'Registrasi gagal');
+        console.error('[SUBMIT] Respons tidak OK:', response.status, responseData);
+        throw new Error(responseData.message || (editingId ? 'Gagal memperbarui pengguna' : 'Registrasi gagal'));
       }
 
       showAlertMessage(editingId ? 'Pengguna berhasil diperbarui' : 'Pengguna berhasil ditambahkan', 'success');
@@ -194,7 +246,7 @@ export default function ManajemenPengguna() {
       fetchUsers();
     } catch (err) {
       console.error('Submit error:', err);
-      showAlertMessage(err.message, 'error');
+      showAlertMessage(err.message || 'Gagal memproses permintaan', 'error');
     } finally {
       setLoading(false);
     }
@@ -205,7 +257,7 @@ export default function ManajemenPengguna() {
     setFormData({
       nikadmin: user.nikadmin,
       email: user.email,
-      password: '', // Password tidak diisi ulang untuk keamanan
+      password: '',
       namalengkap: user.namalengkap,
       role_id: user.role_id
     });
@@ -225,21 +277,37 @@ export default function ManajemenPengguna() {
       }
 
       setLoading(true);
-      const res = await fetch(`http://localhost:8080/api/user/${id}`, {
+      console.log('[DELETE] Menghapus pengguna dengan ID:', id);
+      const res = await fetch(`http://localhost:8080/api/deleteusers/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (!res.ok) {
-        throw new Error('Gagal menghapus pengguna');
+      console.log('[DELETE] Status:', res.status);
+      const text = await res.text();
+      console.log('[DELETE] Respons teks:', text);
+
+      let data;
+      try {
+        data = JSON.parse(text);
+        console.log('[DELETE] Respons JSON:', data);
+      } catch (jsonError) {
+        console.error('[DELETE] Gagal parsing JSON:', jsonError);
+        throw new Error(`Respons bukan JSON: ${text}`);
       }
 
-      const data = await res.json();
-      showAlertMessage(data.message || 'Pengguna berhasil dihapus', 'success');
+      if (!res.ok) {
+        throw new Error(data.message || 'Gagal menghapus pengguna');
+      }
+
+      showAlertMessage('Pengguna berhasil dihapus', 'success');
       fetchUsers();
     } catch (err) {
       console.error('Delete error:', err);
-      showAlertMessage('Gagal menghapus pengguna', 'error');
+      showAlertMessage(err.message || 'Gagal menghapus pengguna', 'error');
     } finally {
       setLoading(false);
     }
@@ -304,7 +372,11 @@ export default function ManajemenPengguna() {
                       <TableCell>{user.nikadmin}</TableCell>
                       <TableCell>{user.namalengkap}</TableCell>
                       <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.role_id === 'ROLE001' ? 'Bendahara' : user.role_id === 'ROLE002' ? 'Sekretaris' : user.role_id}</TableCell>
+                      <TableCell>
+                        {user.role_id === 'ROLE000' ? 'Superadmin' : 
+                         user.role_id === 'ROLE001' ? 'Bendahara' : 
+                         user.role_id === 'ROLE002' ? 'Sekretaris' : user.role_id}
+                      </TableCell>
                       <TableCell align="center">
                         <Tooltip title="Edit">
                           <IconButton onClick={() => handleEdit(user)}>
@@ -329,7 +401,7 @@ export default function ManajemenPengguna() {
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>{editingId ? 'Edit Pengguna' : 'Tambah Pengguna'}</DialogTitle>
         <DialogContent>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+          <Box component="form" sx={{ mt: 2 }}>
             <TextField
               margin="normal"
               required
@@ -374,12 +446,13 @@ export default function ManajemenPengguna() {
               disabled={loading}
             >
               <MenuItem value="">Pilih peran...</MenuItem>
+              <MenuItem value="ROLE000">Superadmin</MenuItem>
               <MenuItem value="ROLE001">Bendahara</MenuItem>
               <MenuItem value="ROLE002">Sekretaris</MenuItem>
             </TextField>
             <TextField
               margin="normal"
-              required={!editingId} // Password hanya wajib saat tambah
+              required={!editingId}
               fullWidth
               name="password"
               label="Password"
@@ -394,7 +467,7 @@ export default function ManajemenPengguna() {
           <Button onClick={handleCloseDialog} disabled={loading}>
             Batal
           </Button>
-          <Button type="submit" onClick={handleSubmit} disabled={loading}>
+          <Button onClick={handleSubmit} disabled={loading}>
             {loading ? <CircularProgress size={24} /> : editingId ? 'Simpan' : 'Tambah'}
           </Button>
         </DialogActions>

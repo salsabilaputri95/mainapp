@@ -16,9 +16,9 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import Image from 'next/image';
-import { authService } from '@/services/authService';
+import { Suspense } from 'react';
 
-export default function ResetPassword() {
+function ResetPasswordContent() {
   const [formData, setFormData] = useState({ password: '', confirmPassword: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -50,6 +50,7 @@ export default function ResetPassword() {
     setError('');
     setSuccess('');
 
+    // Validasi input
     if (!formData.password || !formData.confirmPassword) {
       setError('Password dan konfirmasi password harus diisi.');
       return;
@@ -69,17 +70,49 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
-      const result = await authService.resetPassword(token, formData.password);
-      if (!result.success) {
-        setError(result.error);
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/user/reset-password?token=${token}`;
+      console.log('Mengirim permintaan ke:', apiUrl); // Log URL untuk debugging
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token: token,
+          password: formData.password,
+        }),
+      });
+
+      console.log('Status respons:', response.status, response.statusText); // Log status respons
+
+      // Coba baca respons sebagai teks untuk debugging
+      const responseText = await response.text();
+      console.log('Isi respons:', responseText); // Log isi respons
+
+      // Coba parse sebagai JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('Gagal parse respons sebagai JSON:', jsonError.message);
+        throw new Error('Server mengembalikan respons tidak valid. Pastikan backend aktif dan mengembalikan JSON.');
+      }
+
+      if (!response.ok) {
+        console.error('Respons backend:', data);
+        setError(data.message || `Gagal mereset password (Status: ${response.status}). Silakan coba lagi.`);
       } else {
-        setSuccess(result.message);
+        setSuccess(data.message || 'Password berhasil direset.');
         setTimeout(() => {
-          router.push('/authentication/login');
+          router.push('/authentication/sign-in');
         }, 2000);
       }
     } catch (error) {
-      setError('Terjadi kesalahan saat mereset password. Silakan coba lagi.');
+      console.error('Error jaringan:', error.message);
+      setError(
+        `Terjadi kesalahan: ${error.message}. Pastikan server backend aktif di ${process.env.NEXT_PUBLIC_API_BASE_URL} dan token valid.`
+      );
     } finally {
       setLoading(false);
     }
@@ -88,10 +121,30 @@ export default function ResetPassword() {
   return (
     <Container component="main" maxWidth="xs">
       <Box sx={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Paper elevation={3} sx={{ p: 4, width: '100%', borderRadius: '16px', backgroundColor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)' }}>
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            width: '100%',
+            borderRadius: '16px',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-            <Image src="/favicon.ico" alt="Logo" width={80} height={80} style={{ marginBottom: '16px', borderRadius: '50%' }} priority />
-            <Typography component="h1" variant="h5" sx={{ fontWeight: 600, color: '#1a237e', textAlign: 'center' }}>
+            <Image
+              src="/image.png"
+              alt="Logo"
+              width={80}
+              height={80}
+              style={{ marginBottom: '16px', borderRadius: '50%' }}
+              priority
+            />
+            <Typography
+              component="h1"
+              variant="h5"
+              sx={{ fontWeight: 600, color: '#1a237e', textAlign: 'center' }}
+            >
               Reset Password
             </Typography>
             <Typography variant="body2" color="textSecondary" sx={{ mt: 1, textAlign: 'center' }}>
@@ -164,7 +217,13 @@ export default function ResetPassword() {
               fullWidth
               variant="contained"
               disabled={loading || !token}
-              sx={{ mt: 2, mb: 2, py: 1.5, backgroundColor: '#1a237e', '&:hover': { backgroundColor: '#0d47a1' } }}
+              sx={{
+                mt: 2,
+                mb: 2,
+                py: 1.5,
+                backgroundColor: '#1a237e',
+                '&:hover': { backgroundColor: '#0d47a1' },
+              }}
             >
               {loading ? (
                 <>
@@ -178,7 +237,7 @@ export default function ResetPassword() {
             <Button
               fullWidth
               variant="text"
-              onClick={() => router.push('/authentication/login')}
+              onClick={() => router.push('/authentication/sign-in')}
               sx={{ mt: 1, textTransform: 'none', color: '#1a237e' }}
             >
               Kembali ke Login
@@ -187,5 +246,13 @@ export default function ResetPassword() {
         </Paper>
       </Box>
     </Container>
+  );
+}
+
+export default function ResetPassword() {
+  return (
+    <Suspense fallback={<div>Memuat...</div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
