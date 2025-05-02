@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
 	"godesaapps/config"
 	"godesaapps/controller"
 	"godesaapps/repository"
 	"godesaapps/service"
 	"godesaapps/util"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/julienschmidt/httprouter"
-
 	"gorm.io/driver/mysql"
-    "gorm.io/gorm"
-
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 	// Inisialisasi repository
 	userRepository := repository.NewUserRepositoryImpl(mysql)
 	wargaRepository := repository.NewWargaRepository(mysql)
-	contactMessageRepository := repository.NewContactMessageRepository(mysql) // Perbaikan: ganti db dengan mysql
+	contactMessageRepository := repository.NewContactMessageRepository(mysql)
 
 	// Inisialisasi service
 	userService := service.NewUserServiceImpl(userRepository, mysql)
@@ -53,8 +53,10 @@ func main() {
 	// Warga routes
 	router.POST("/api/warga/register", wargaController.RegisterWarga)
 
-	// Contact message route
+	// Contact message routes
 	router.POST("/api/contact/message", contactMessageController.CreateMessage)
+	router.GET("/api/contact/message", contactMessageController.GetAllMessages)
+	router.DELETE("/api/contact/message/:id", contactMessageController.DeleteMessage) // Tambahkan route DELETE
 
 	// Terapkan middleware CORS
 	handler := corsMiddleware(router)
@@ -114,7 +116,7 @@ func VerifyJWT(next httprouter.Handle) httprouter.Handle {
 	}
 }
 
-// Fungsi ConnectToDatabase (sebagai cadangan jika tidak ada di package config)
+// Fungsi ConnectToDatabase (cadangan jika tidak ada di config)
 func ConnectToDatabase() (*gorm.DB, error) {
 	dsn := "user:password@tcp(127.0.0.1:3306)/dbname?parseTime=true"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})

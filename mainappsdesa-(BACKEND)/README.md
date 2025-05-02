@@ -134,3 +134,6 @@ GET             /api/user/dashboard-sekretaris  bagi hak akses apk didalamnya de
 
 <!-- Warga -->
 POST            /api/warga/register           Untuk Form warga untuk req ke sekretaris
+POST            /api/contact/message          Untuk menghubungi desa
+GET             /api/contact/message          Untuk menghubungi desa
+DELETE          /api/contact/message/id       Untuk menghubungi desa
